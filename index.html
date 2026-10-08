@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUNDOCHEM 수전일지</title>
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- Tailwind CSS & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
+    <!-- 스타일 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="p-4 lg:p-6 min-h-screen flex flex-col items-center">
+
+    <div class="w-full max-w-[1500px] flex-1 flex flex-col">
+
+        <!-- 상단 헤더 및 결재란 -->
+        <div class="flex flex-col gap-4 mb-4">
+
+            <div class="flex justify-between items-center w-full relative z-20">
+                <div class="flex-1 flex items-center gap-3">
+                    <!-- 날짜 이동 좌우 화살표 버튼 -->
+                    <div class="flex items-center bg-[#1e293b] p-1 rounded-xl border border-slate-600 shadow-md no-print">
+                        <button onclick="changeDate(-1)" class="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 rounded-lg transition font-bold" title="전날로 이동 (Alt+←)">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button onclick="goToday()" class="px-2.5 h-9 text-xs font-bold text-slate-300 hover:text-white transition" title="오늘 날짜로 이동">
+                            오늘
+                        </button>
+                        <button onclick="changeDate(1)" class="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 rounded-lg transition font-bold" title="다음날로 이동 (Alt+→)">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 날짜 선택 박스 -->
+                <div class="flex items-center gap-3 bg-[#1e293b] px-6 py-2 rounded-full border border-slate-600 shadow-inner print:border-none print:bg-transparent shrink-0">
+                    <span class="text-slate-400 font-bold text-sm tracking-widest print:text-black">근무일자:</span>
+                    <input type="date" id="log-date" class="bg-transparent border-none text-xl font-black text-amber-400 outline-none cursor-pointer print:text-black text-center">
+                    <span id="log-day" class="text-xl font-black text-amber-400 ml-1 print:text-black"></span>
+                </div>
+
+                <!-- 상단 제어 버튼 -->
+                <div class="flex-1 flex justify-end gap-2 no-print shrink-0">
+                    <button onclick="toggleFullScreen()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-600 font-bold transition flex items-center gap-2 text-xs shadow-md"><i class="fas fa-expand"></i> 전체화면</button>
+                    <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded border border-slate-600 font-bold transition flex items-center gap-2 text-xs shadow-md"><i class="fas fa-print"></i> 인쇄</button>
+                    <button onclick="logout()" class="bg-rose-900 hover:bg-rose-800 text-white px-3 py-1.5 rounded border border-rose-700 font-bold transition flex items-center gap-2 text-xs shadow-md"><i class="fas fa-right-from-bracket"></i> 로그아웃</button>
+                </div>
+            </div>
+
+            <!-- 타이틀 및 결재란 -->
+            <div class="flex justify-between items-end">
+
+                <div class="flex items-center gap-4 bg-pink-950/20 px-6 py-3 rounded-2xl border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.15)]">
+                    <div class="bg-pink-500/20 p-2.5 rounded-xl border border-pink-500/50">
+                        <i class="fas fa-clipboard-list text-[2.5rem] text-pink-400 no-print"></i>
+                    </div>
+                    <h1 class="text-[3rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 tracking-widest drop-shadow-md print:text-2xl print:text-black">수전일지(일일점검)</h1>
+                </div>
+
+                <!-- 결재란 -->
+                <div class="w-[550px] flex h-[121px] sign-box border border-slate-600 rounded-lg overflow-hidden shadow-inner print:shadow-none">
+                    <div class="w-12 bg-slate-800 flex flex-col items-center justify-center text-slate-300 font-black text-base tracking-widest sign-title-box leading-tight border-r border-slate-600 print:bg-transparent print:text-black">
+                        <span>결</span><span>재</span>
+                    </div>
+                    <div class="grid grid-cols-4 bg-[#0f172a] print:bg-transparent flex-1">
+                        <div class="bg-slate-700/60 print:bg-transparent border-r border-b border-slate-600 flex items-center justify-center py-1.5 text-slate-300 print:text-black font-bold text-sm sign-label">담 당</div>
+                        <div class="bg-slate-700/60 print:bg-transparent border-r border-b border-slate-600 flex items-center justify-center py-1.5 text-slate-300 print:text-black font-bold text-sm sign-label">검 토 1</div>
+                        <div class="bg-slate-700/60 print:bg-transparent border-r border-b border-slate-600 flex items-center justify-center py-1.5 text-slate-300 print:text-black font-bold text-sm sign-label">검 토 2</div>
+                        <div class="bg-slate-700/60 print:bg-transparent border-b border-slate-600 flex items-center justify-center py-1.5 text-slate-300 print:text-black font-bold text-sm sign-label">승 인</div>
+
+                        <div class="border-r border-slate-600 sign-input-wrapper"><textarea id="job_sign_draft" class="att-cell text-center text-slate-200 print:text-black font-bold sync-item pt-4" placeholder="(서명)" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" autocomplete="off"></textarea></div>
+                        <div class="border-r border-slate-600 sign-input-wrapper"><textarea id="job_sign_rev1" class="att-cell text-center text-slate-200 print:text-black font-bold sync-item pt-4" placeholder="(서명)" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" autocomplete="off"></textarea></div>
+                        <div class="border-r border-slate-600 sign-input-wrapper"><textarea id="job_sign_rev2" class="att-cell text-center text-slate-200 print:text-black font-bold sync-item pt-4" placeholder="(서명)" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" autocomplete="off"></textarea></div>
+                        <div class="sign-input-wrapper"><textarea id="job_sign_appr" class="att-cell text-center text-slate-200 print:text-black font-bold sync-item pt-4" placeholder="(서명)" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" autocomplete="off"></textarea></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 메인 수전일지 점검표 (기준 격자: 시간 2칸 + 데이터 20칸) -->
+        <div class="main-table-wrapper border-[3px] border-pink-500 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(236,72,153,0.2)] bg-[#0f172a]">
+          <div class="overflow-x-auto">
+            <table class="log-table">
+                <colgroup>
+                    <col class="col-time1"><col class="col-time2">
+                    <col><col><col><col><col><col><col><col><col><col>
+                    <col><col><col><col><col><col><col><col><col><col>
+                </colgroup>
+
+                <!-- ===== 1. 수전반 / 변압기 ===== -->
+                <tr class="h sec">
+                    <th colspan="2" rowspan="2" class="diag"><span class="diag-top">구 분</span><span class="diag-bot">시 간</span></th>
+                    <th colspan="4" class="grp">고압반(800KVA)</th>
+                    <th colspan="4" class="grp">고압반(3000KVA)</th>
+                    <th colspan="4" class="grp">저압반(ACB)</th>
+                    <th colspan="3" class="grp">변압기</th>
+                    <th colspan="5" rowspan="2" class="grp">특기사항</th>
+                </tr>
+                <tr class="h">
+                    <th colspan="2">전압(V)</th><th colspan="2">전류(A)</th>
+                    <th colspan="2">전압(V)</th><th colspan="2">전류(A)</th>
+                    <th colspan="2">전압(V)</th><th colspan="2">전류(A)</th>
+                    <th>오일누유</th><th>온도이상</th><th>소음/진동</th>
+                </tr>
+                <tr class="d">
+                    <td><input id="s1_r1_time" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r1_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_hv800_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_hv800_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_hv3000_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_hv3000_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_lv_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r1_lv_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r1_tr_oil" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r1_tr_temp" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r1_tr_noise" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="5"><input id="s1_r1_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <td><input id="s1_r2_time" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r2_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_hv800_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_hv800_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_hv3000_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_hv3000_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_lv_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r2_lv_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r2_tr_oil" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r2_tr_temp" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r2_tr_noise" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="5"><input id="s1_r2_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <td><input id="s1_r3_time" class="cell sync-item" autocomplete="off"></td>
+                    <th class="eq-label">#1 PSA(A/B)<br>MOTOR</th>
+                    <td colspan="2"><input id="s1_r3_hv800_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r3_hv800_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r3_hv3000_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r3_hv3000_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r3_lv_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r3_lv_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r3_tr_oil" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r3_tr_temp" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r3_tr_noise" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="5"><input id="s1_r3_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <td><input id="s1_r4_time" class="cell sync-item" autocomplete="off"></td>
+                    <th class="eq-label">#2 PSA(A/B)<br>MOTOR</th>
+                    <td colspan="2"><input id="s1_r4_hv800_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r4_hv800_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r4_hv3000_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r4_hv3000_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r4_lv_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s1_r4_lv_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r4_tr_oil" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r4_tr_temp" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s1_r4_tr_noise" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="5"><input id="s1_r4_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+
+                <!-- ===== 2. #1~#5 COMPRESSOR ===== -->
+                <tr class="h sec">
+                    <th colspan="2" rowspan="3" class="diag"><span class="diag-top">구 분</span><span class="diag-bot">시 간</span></th>
+                    <th colspan="4" class="grp">#1 COMPRESSOR</th>
+                    <th colspan="4" class="grp">#2 COMPRESSOR</th>
+                    <th colspan="4" class="grp">#3 COMPRESSOR</th>
+                    <th colspan="4" class="grp">#4 COMPRESSOR</th>
+                    <th colspan="4" class="grp">#5 COMPRESSOR</th>
+                </tr>
+                <tr class="h">
+                    <th colspan="2">CO2</th><th colspan="2">NH3</th>
+                    <th colspan="2">CO2</th><th colspan="2">NH3</th>
+                    <th colspan="2">CO2</th><th colspan="2">NH3</th>
+                    <th colspan="2">CO2</th><th colspan="2">NH3</th>
+                    <th colspan="2">CO2</th><th colspan="2">NH3</th>
+                </tr>
+                <tr class="h">
+                    <th>전압(V)</th><th>전류(A)</th><th>전압(V)</th><th>전류(A)</th>
+                    <th>전압(V)</th><th>전류(A)</th><th>전압(V)</th><th>전류(A)</th>
+                    <th>전압(V)</th><th>전류(A)</th><th>전압(V)</th><th>전류(A)</th>
+                    <th>전압(V)</th><th>전류(A)</th><th>전압(V)</th><th>전류(A)</th>
+                    <th>전압(V)</th><th>전류(A)</th><th>전압(V)</th><th>전류(A)</th>
+                </tr>
+                <tr class="d">
+                    <td><input id="s2_r1_time" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c1_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c1_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c1_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c1_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c2_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c2_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c2_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c2_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c3_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c3_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c3_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c3_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c4_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c4_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c4_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c4_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c5_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c5_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c5_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r1_c5_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <td><input id="s2_r2_time" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c1_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c1_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c1_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c1_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c2_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c2_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c2_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c2_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c3_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c3_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c3_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c3_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c4_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c4_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c4_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c4_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c5_co2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c5_co2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c5_nh2_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s2_r2_c5_nh2_a" class="cell sync-item" autocomplete="off"></td>
+                </tr>
+
+                <!-- ===== 3. COOLING TOWER / #3 COMPRESSOR ===== -->
+                <tr class="h sec">
+                    <th colspan="2" rowspan="4" class="diag"><span class="diag-top">구 분</span><span class="diag-bot">시 간</span></th>
+                    <th colspan="6" class="grp">#1 COOLING TOWER</th>
+                    <th colspan="6" class="grp">#2 COOLING TOWER</th>
+                    <th colspan="4" class="grp">#3 COMPRESSOR</th>
+                    <th colspan="4" rowspan="2" class="grp">특기사항</th>
+                </tr>
+                <tr class="h">
+                    <th colspan="2">PUMP</th>
+                    <th colspan="4">COOLING FAN</th>
+                    <th colspan="4">PUMP</th>
+                    <th colspan="2" rowspan="2">FAN</th>
+                    <th colspan="2">PUMP</th>
+                    <th colspan="2">FAN</th>
+                </tr>
+                <tr class="h">
+                    <th colspan="2">#2</th>
+                    <th>공통</th><th>#1</th><th>#2</th><th>#3</th>
+                    <th colspan="4">#2</th>
+                    <th colspan="2" rowspan="2"><span class="no-wrap">#(<input id="s3_c3_pump_no" class="num-in sync-item" autocomplete="off">)</span></th>
+                    <th colspan="2" rowspan="2"><span class="no-wrap">#(<input id="s3_c3_fan_no" class="num-in sync-item" autocomplete="off">)</span></th>
+                    <td colspan="4"><input id="s3_hnote1" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="h">
+                    <th>전압(V)</th><th>전류(A)</th>
+                    <th>전압(V)</th><th>전류(A)</th><th>전류(A)</th><th>전류(A)</th>
+                    <th colspan="2">전압(V)</th><th colspan="2">전류(A)</th><th colspan="2">전류(A)</th>
+                    <td colspan="4"><input id="s3_hnote2" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <th>구공장</th>
+                    <td><input id="s3_old_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_pump_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_pump_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_fan_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_fan1_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_fan2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_old_ct1_fan3_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_old_ct2_pump_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_old_ct2_pump_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_old_ct2_fan_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><div class="unit-cell"><input id="s3_old_c3_pump" class="cell sync-item" autocomplete="off"><span>V</span></div></td>
+                    <td colspan="2"><div class="unit-cell"><input id="s3_old_c3_fan" class="cell sync-item" autocomplete="off"><span>V</span></div></td>
+                    <td colspan="4"><input id="s3_old_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <th>신공장</th>
+                    <td><input id="s3_new_eq" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_pump_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_pump_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_fan_v" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_fan1_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_fan2_a" class="cell sync-item" autocomplete="off"></td>
+                    <td><input id="s3_new_ct1_fan3_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_new_ct2_pump_v" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_new_ct2_pump_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><input id="s3_new_ct2_fan_a" class="cell sync-item" autocomplete="off"></td>
+                    <td colspan="2"><div class="unit-cell"><input id="s3_new_c3_pump" class="cell sync-item" autocomplete="off"><span>A</span></div></td>
+                    <td colspan="2"><div class="unit-cell"><input id="s3_new_c3_fan" class="cell sync-item" autocomplete="off"><span>A</span></div></td>
+                    <td colspan="4"><input id="s3_new_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+
+                <!-- ===== 4. 진공펌프 ===== -->
+                <tr class="d sec">
+                    <th colspan="2">구진공펌프(A)</th>
+                    <th>#1</th><td colspan="2"><input id="s4_old_p1" class="cell sync-item" autocomplete="off"></td>
+                    <th>#2</th><td colspan="2"><input id="s4_old_p2" class="cell sync-item" autocomplete="off"></td>
+                    <th>#3</th><td colspan="2"><input id="s4_old_p3" class="cell sync-item" autocomplete="off"></td>
+                    <th>#4</th><td colspan="2"><input id="s4_old_p4" class="cell sync-item" autocomplete="off"></td>
+                    <th>#5</th><td colspan="2"><input id="s4_old_p5" class="cell sync-item" autocomplete="off"></td>
+                    <th colspan="2" class="no-wrap">(구) V/P #1(V)</th>
+                    <td colspan="3"><input id="s4_old_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+                <tr class="d">
+                    <th colspan="2">신진공펌프(A)</th>
+                    <th>#1</th><td colspan="2"><input id="s4_new_p1" class="cell sync-item" autocomplete="off"></td>
+                    <th>#2</th><td colspan="2"><input id="s4_new_p2" class="cell sync-item" autocomplete="off"></td>
+                    <th>#3</th><td colspan="2"><input id="s4_new_p3" class="cell sync-item" autocomplete="off"></td>
+                    <th>#4</th><td colspan="2"><input id="s4_new_p4" class="cell sync-item" autocomplete="off"></td>
+                    <th>#5</th><td colspan="2"><input id="s4_new_p5" class="cell sync-item" autocomplete="off"></td>
+                    <th colspan="2" class="no-wrap">(신) V/P #1(V)</th>
+                    <td colspan="3"><input id="s4_new_note" class="cell left sync-item" autocomplete="off"></td>
+                </tr>
+
+                <!-- ===== 5. 특기사항 ===== -->
+                <tr class="sec note-row">
+                    <td colspan="22">
+                        <div class="note-label">특기사항</div>
+                        <textarea id="s5_note" class="cell left note-area sync-item" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" autocomplete="off"></textarea>
+                    </td>
+                </tr>
+            </table>
+          </div>
+        </div>
+    </div>
+
+    <!-- Firebase 및 데이터 연동 스크립트 -->
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
