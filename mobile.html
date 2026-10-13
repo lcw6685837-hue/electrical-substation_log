@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0b1120">
+    <title>SUNDOCHEM 수전일지 (모바일)</title>
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
+    <!-- 스타일 -->
+    <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+    <!-- 상단 고정: 날짜 이동 + 저장 상태 + 구역 탭 -->
+    <header class="top">
+        <div class="date-bar">
+            <button type="button" class="nav-btn" onclick="changeDate(-1)" aria-label="전날">&#9664;</button>
+            <div class="date-box">
+                <input type="date" id="log-date">
+                <span id="log-day"></span>
+            </div>
+            <button type="button" class="nav-btn" onclick="changeDate(1)" aria-label="다음날">&#9654;</button>
+            <button type="button" class="today-btn" onclick="goToday()">오늘</button>
+            <span id="sync-status" class="status">연결 중</span>
+        </div>
+        <nav id="tabs" class="tabs"></nav>
+    </header>
+
+    <!-- 구역별 입력 화면 (mobile.js에서 생성) -->
+    <main id="panels"></main>
+
+    <footer class="foot">
+        <a href="index.html?pc=1">PC 화면(전체 표) 보기</a>
+        <button type="button" onclick="logout()">로그아웃</button>
+    </footer>
+
+    <!-- Firebase 및 데이터 연동 스크립트 -->
+    <script src="firebase-config.js"></script>
+    <script src="mobile.js"></script>
+</body>
+</html>
